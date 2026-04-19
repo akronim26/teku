@@ -192,7 +192,7 @@ public class ForkChoiceTestExecutor implements TestExecutor {
             DebugDataDumper.NOOP,
             storageSystem.getMetricsSystem(),
             AsyncBLSSignatureVerifier.wrap(
-                blsDisabled ? BLSSignatureVerifier.NO_OP : BLSSignatureVerifier.SIMPLE));
+                blsDisabled ? BLSSignatureVerifier.NOOP : BLSSignatureVerifier.SIMPLE));
     final ExecutionLayerChannelStub executionLayer = new ExecutionLayerChannelStub(spec, false);
 
     try {
@@ -561,7 +561,8 @@ public class ForkChoiceTestExecutor implements TestExecutor {
                 shouldOverrideForkChoiceUpdateCheck.get("validator_is_connected");
             final boolean shouldOverrideChainHead =
                 recentChainData.shouldOverrideForkChoiceUpdate(
-                    recentChainData.getBestBlockRoot().orElseThrow());
+                    recentChainData.getBestBlockRoot().orElseThrow(),
+                    recentChainData.getHeadSlot());
             assertThat(shouldOverrideChainHead).isEqualTo(expectedResult);
             // We've currently only handled the validatorIsConnected 'true' case in reftests,
             // lets validate we're dealing with that and don't have to extend tests further.

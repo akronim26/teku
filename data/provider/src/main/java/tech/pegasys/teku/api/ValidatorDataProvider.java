@@ -33,6 +33,7 @@ import tech.pegasys.teku.spec.Spec;
 import tech.pegasys.teku.spec.SpecMilestone;
 import tech.pegasys.teku.spec.datastructures.blocks.SignedBlockContainer;
 import tech.pegasys.teku.spec.datastructures.builder.SignedValidatorRegistration;
+import tech.pegasys.teku.spec.datastructures.epbs.versions.gloas.PayloadAttestationMessage;
 import tech.pegasys.teku.spec.datastructures.epbs.versions.gloas.SignedExecutionPayloadBid;
 import tech.pegasys.teku.spec.datastructures.epbs.versions.gloas.SignedExecutionPayloadEnvelope;
 import tech.pegasys.teku.spec.datastructures.metadata.BlockContainerAndMetaData;
@@ -132,6 +133,11 @@ public class ValidatorDataProvider {
   public SafeFuture<List<SubmitDataError>> submitAttestations(
       final List<Attestation> attestations) {
     return validatorApiChannel.sendSignedAttestations(attestations);
+  }
+
+  public SafeFuture<List<SubmitDataError>> submitPayloadAttestationMessages(
+      final List<PayloadAttestationMessage> messages) {
+    return validatorApiChannel.sendPayloadAttestationMessages(messages);
   }
 
   public SafeFuture<SendSignedBlockResult> submitSignedBlock(
