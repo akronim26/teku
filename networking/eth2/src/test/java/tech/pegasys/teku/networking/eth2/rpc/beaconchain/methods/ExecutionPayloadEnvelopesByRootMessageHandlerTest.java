@@ -63,7 +63,7 @@ class ExecutionPayloadEnvelopesByRootMessageHandlerTest {
   private final StubMetricsSystem metricsSystem = new StubMetricsSystem();
 
   final ExecutionPayloadEnvelopesByRootMessageHandler handler =
-      new ExecutionPayloadEnvelopesByRootMessageHandler(recentChainData, metricsSystem);
+      new ExecutionPayloadEnvelopesByRootMessageHandler(spec, recentChainData, metricsSystem);
 
   final Eth2Peer peer = mock(Eth2Peer.class);
 
@@ -186,6 +186,59 @@ class ExecutionPayloadEnvelopesByRootMessageHandlerTest {
     // verify counters
     assertThat(getRequestCounterValueForLabel("ok")).isOne();
     assertThat(getExecutionPayloadEnvelopesRequestedCounterValue()).isEqualTo(5);
+  }
+
+  @Test
+  public void onIncomingMessage_shouldSkipEnvelopesOutsideServableRange() {
+    final UInt64 minEpochsForBlockRequests =
+        UInt64.valueOf(spec.getNetworkingConfig().getMinEpochsForBlockRequests());
+
+    final UInt64 currentEpoch = minEpochsForBlockRequests.plus(10);
+
+    when(recentChainData.getCurrentEpoch()).thenReturn(Optional.of(currentEpoch));
+
+    final List<SignedExecutionPayloadEnvelope> envelopes = buildChain(2);
+    final SignedExecutionPayloadEnvelope oldEnvelope = envelopes.get(0);
+    final SignedExecutionPayloadEnvelope newEnvelope = envelopes.get(1);
+
+    final SignedExecutionPayloadEnvelope mockedOldEnvelope =
+        mock(SignedExecutionPayloadEnvelope.class);
+    final ExecutionPayloadEnvelope mockedOldMessage = mock(ExecutionPayloadEnvelope.class);
+    final UInt64 oldSlot =
+        spec.computeStartSlotAtEpoch(currentEpoch.minus(minEpochsForBlockRequests).minus(1));
+    when(mockedOldEnvelope.getMessage()).thenReturn(mockedOldMessage);
+    when(mockedOldMessage.getSlot()).thenReturn(oldSlot);
+    when(mockedOldMessage.getBeaconBlockRoot())
+        .thenReturn(oldEnvelope.getMessage().getBeaconBlockRoot());
+
+    final SignedExecutionPayloadEnvelope mockedNewEnvelope =
+        mock(SignedExecutionPayloadEnvelope.class);
+    final ExecutionPayloadEnvelope mockedNewMessage = mock(ExecutionPayloadEnvelope.class);
+    final UInt64 newSlot = spec.computeStartSlotAtEpoch(currentEpoch);
+    when(mockedNewEnvelope.getMessage()).thenReturn(mockedNewMessage);
+    when(mockedNewMessage.getSlot()).thenReturn(newSlot);
+    when(mockedNewMessage.getBeaconBlockRoot())
+        .thenReturn(newEnvelope.getMessage().getBeaconBlockRoot());
+
+    when(recentChainData.retrieveSignedExecutionPayloadByBlockRoot(
+            oldEnvelope.getMessage().getBeaconBlockRoot()))
+        .thenReturn(SafeFuture.completedFuture(Optional.of(mockedOldEnvelope)));
+    when(recentChainData.retrieveSignedExecutionPayloadByBlockRoot(
+            newEnvelope.getMessage().getBeaconBlockRoot()))
+        .thenReturn(SafeFuture.completedFuture(Optional.of(mockedNewEnvelope)));
+
+    final ExecutionPayloadEnvelopesByRootRequestMessage message =
+        createRequestFromBeaconBlockRoots(
+            List.of(
+                oldEnvelope.getMessage().getBeaconBlockRoot(),
+                newEnvelope.getMessage().getBeaconBlockRoot()));
+
+    handler.onIncomingMessage(V2_PROTOCOL_ID, peer, message, callback);
+
+    verify(callback).respond(mockedNewEnvelope);
+    verify(callback, never()).respond(mockedOldEnvelope);
+    verify(callback).completeSuccessfully();
+    verify(peer).adjustExecutionPayloadEnvelopesRequest(any(), eq(1L));
   }
 
   private ExecutionPayloadEnvelopesByRootRequestMessage createRequestFromExecutionPayloadEnvelopes(

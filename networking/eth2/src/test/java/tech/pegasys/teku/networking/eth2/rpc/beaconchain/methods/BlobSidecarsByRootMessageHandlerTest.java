@@ -64,7 +64,7 @@ import tech.pegasys.teku.storage.store.UpdatableStore;
 public class BlobSidecarsByRootMessageHandlerTest {
 
   private final UInt64 genesisTime = UInt64.valueOf(1982239L);
-  private final UInt64 currentForkEpoch = UInt64.valueOf(1);
+  private final UInt64 currentForkEpoch = UInt64.valueOf(40000);
   private BlobSidecarsByRootRequestMessageSchema messageSchema;
   private final ArgumentCaptor<BlobSidecar> blobSidecarCaptor =
       ArgumentCaptor.forClass(BlobSidecar.class);
@@ -128,9 +128,6 @@ public class BlobSidecarsByRootMessageHandlerTest {
     reset(combinedChainDataClient);
     when(combinedChainDataClient.getSlotByBlockRoot(any()))
         .thenReturn(SafeFuture.completedFuture(Optional.of(currentForkFirstSlot)));
-    // deneb fork epoch is finalized
-    when(combinedChainDataClient.getFinalizedBlockSlot())
-        .thenReturn(Optional.of(currentForkFirstSlot));
     when(combinedChainDataClient.getStore()).thenReturn(store);
     when(combinedChainDataClient.getRecentChainData()).thenReturn(recentChainData);
     when(callback.respond(any())).thenReturn(SafeFuture.COMPLETE);
