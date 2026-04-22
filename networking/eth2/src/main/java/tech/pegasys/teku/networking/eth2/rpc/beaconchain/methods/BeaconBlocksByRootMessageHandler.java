@@ -114,15 +114,18 @@ public class BeaconBlocksByRootMessageHandler
                       .thenCompose(
                           maybeBlock ->
                               maybeBlock
+                                  .filter(this::isBlockWithinServableRange)
                                   .flatMap(response -> validateResponse(protocolId, response))
                                   .<SafeFuture<Void>>map(SafeFuture::failedFuture)
                                   .or(
                                       () ->
-                                          maybeBlock.map(
-                                              block ->
-                                                  callback
-                                                      .respond(block)
-                                                      .thenRun(sentBlocks::incrementAndGet)))
+                                          maybeBlock
+                                              .filter(this::isBlockWithinServableRange)
+                                              .map(
+                                                  block ->
+                                                      callback
+                                                          .respond(block)
+                                                          .thenRun(sentBlocks::incrementAndGet)))
                                   .orElse(SafeFuture.COMPLETE)));
     }
     future.finish(
@@ -148,6 +151,14 @@ public class BeaconBlocksByRootMessageHandler
     final UInt64 currentEpoch = recentChainData.getCurrentEpoch().orElse(UInt64.ZERO);
     final SpecMilestone milestone = spec.getForkSchedule().getSpecMilestoneAtEpoch(currentEpoch);
     return spec.forMilestone(milestone).miscHelpers().getMaxRequestBlocks();
+  }
+
+  private boolean isBlockWithinServableRange(final SignedBeaconBlock block) {
+    final UInt64 currentEpoch = recentChainData.getCurrentEpoch().orElse(UInt64.ZERO);
+    final UInt64 minServableEpoch =
+        currentEpoch.minusMinZero(spec.getNetworkingConfig().getMinEpochsForBlockRequests());
+    final UInt64 blockEpoch = spec.computeEpochAtSlot(block.getSlot());
+    return blockEpoch.isGreaterThanOrEqualTo(minServableEpoch);
   }
 
   @VisibleForTesting

@@ -114,15 +114,13 @@ public class BlobSidecarsByRootMessageHandler
 
     SafeFuture<Void> future = SafeFuture.COMPLETE;
     final AtomicInteger sentBlobSidecars = new AtomicInteger(0);
-    final UInt64 finalizedEpoch = getFinalizedEpoch();
 
     for (final BlobIdentifier identifier : message) {
       future =
           future
               .thenCompose(__ -> retrieveBlobSidecar(identifier))
               .thenComposeChecked(
-                  maybeSidecar ->
-                      validateMinAndMaxRequestEpoch(identifier, maybeSidecar, finalizedEpoch))
+                  maybeSidecar -> validateMinAndMaxRequestEpoch(identifier, maybeSidecar))
               .thenComposeChecked(
                   maybeSidecar ->
                       maybeSidecar
@@ -150,13 +148,6 @@ public class BlobSidecarsByRootMessageHandler
     return SpecConfigDeneb.required(spec.atEpoch(epoch).getConfig()).getMaxRequestBlobSidecars();
   }
 
-  private UInt64 getFinalizedEpoch() {
-    return combinedChainDataClient
-        .getFinalizedBlockSlot()
-        .map(spec::computeEpochAtSlot)
-        .orElse(UInt64.ZERO);
-  }
-
   /**
    * Validations:
    *
@@ -166,9 +157,7 @@ public class BlobSidecarsByRootMessageHandler
    * </ul>
    */
   private SafeFuture<Optional<BlobSidecar>> validateMinAndMaxRequestEpoch(
-      final BlobIdentifier identifier,
-      final Optional<BlobSidecar> maybeSidecar,
-      final UInt64 finalizedEpoch) {
+      final BlobIdentifier identifier, final Optional<BlobSidecar> maybeSidecar) {
     return maybeSidecar
         .map(sidecar -> SafeFuture.completedFuture(Optional.of(sidecar.getSlot())))
         .orElse(combinedChainDataClient.getSlotByBlockRoot(identifier.getBlockRoot()))
@@ -180,8 +169,7 @@ public class BlobSidecarsByRootMessageHandler
               }
               final UInt64 requestedEpoch = spec.computeEpochAtSlot(maybeSlot.get());
               if (!spec.isAvailabilityOfBlobSidecarsRequiredAtEpoch(
-                      combinedChainDataClient.getStore(), requestedEpoch)
-                  || requestedEpoch.isLessThan(finalizedEpoch)) {
+                  combinedChainDataClient.getStore(), requestedEpoch)) {
                 throw new RpcException(
                     INVALID_REQUEST_CODE,
                     String.format(
