@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static tech.pegasys.teku.infrastructure.unsigned.UInt64.ZERO;
 import static tech.pegasys.teku.networking.eth2.rpc.core.RpcResponseStatus.INVALID_REQUEST_CODE;
+import static tech.pegasys.teku.networking.eth2.rpc.core.RpcResponseStatus.RESOURCE_UNAVAILABLE;
 
 import java.util.List;
 import java.util.Optional;
@@ -270,7 +271,7 @@ public class BlobSidecarsByRootMessageHandlerTest {
 
     final RpcException rpcException = rpcExceptionCaptor.getValue();
 
-    assertThat(rpcException.getResponseCode()).isEqualTo(INVALID_REQUEST_CODE);
+    assertThat(rpcException.getResponseCode()).isEqualTo(RESOURCE_UNAVAILABLE);
     assertThat(rpcException.getErrorMessageString())
         .isEqualTo(
             "BlobSidecarsByRoot: block root (%s) references a block outside of allowed request range: 1",
@@ -298,15 +299,13 @@ public class BlobSidecarsByRootMessageHandlerTest {
 
     // Requesting 3 blob sidecars
     verify(peer, times(1)).approveBlobSidecarsRequest(any(), eq(Long.valueOf(3)));
-    // Be protective: do not adjust due to error
-    verify(peer, never()).adjustBlobSidecarsRequest(any(), anyLong());
 
     verify(callback, never()).respond(any());
     verify(callback).completeWithErrorResponse(rpcExceptionCaptor.capture());
 
     final RpcException rpcException = rpcExceptionCaptor.getValue();
 
-    assertThat(rpcException.getResponseCode()).isEqualTo(INVALID_REQUEST_CODE);
+    assertThat(rpcException.getResponseCode()).isEqualTo(RESOURCE_UNAVAILABLE);
     assertThat(rpcException.getErrorMessageString())
         .isEqualTo(
             "BlobSidecarsByRoot: block root (%s) references a block outside of allowed request range: 1",

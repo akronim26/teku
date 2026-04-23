@@ -38,8 +38,8 @@ import tech.pegasys.teku.spec.datastructures.networking.libp2p.rpc.BlobSidecarsB
 import tech.pegasys.teku.storage.client.CombinedChainDataClient;
 
 /**
- * <a
- * href="https://github.com/ethereum/consensus-specs/blob/master/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1">BlobSidecarsByRoot
+ * <a href=
+ * "https://github.com/ethereum/consensus-specs/blob/master/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1">BlobSidecarsByRoot
  * v1</a>
  */
 public class BlobSidecarsByRootMessageHandler
@@ -168,13 +168,16 @@ public class BlobSidecarsByRootMessageHandler
                 return SafeFuture.completedFuture(Optional.empty());
               }
               final UInt64 requestedEpoch = spec.computeEpochAtSlot(maybeSlot.get());
-              if (!spec.isAvailabilityOfBlobSidecarsRequiredAtEpoch(
-                  combinedChainDataClient.getStore(), requestedEpoch)) {
-                throw new RpcException(
-                    INVALID_REQUEST_CODE,
-                    String.format(
-                        "BlobSidecarsByRoot: block root (%s) references a block outside of allowed request range: %s",
-                        identifier.getBlockRoot(), maybeSlot.get()));
+              final UInt64 currentEpoch = spec.getCurrentEpoch(combinedChainDataClient.getStore());
+              final UInt64 minServableEpoch =
+                  currentEpoch.minusMinZero(
+                      spec.getNetworkingConfig().getMinEpochsForBlockRequests());
+              if (requestedEpoch.isLessThan(minServableEpoch)) {
+                return SafeFuture.failedFuture(
+                    new RpcException.ResourceUnavailableException(
+                        String.format(
+                            "BlobSidecarsByRoot: block root (%s) references a block outside of allowed request range: %s",
+                            identifier.getBlockRoot(), maybeSlot.get())));
               }
               return SafeFuture.completedFuture(maybeSidecar);
             });
