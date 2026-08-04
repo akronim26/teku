@@ -45,7 +45,8 @@ public class TrackingChainHeadChannel implements ChainHeadChannel {
             epochTransition,
             executionOptimistic,
             previousDutyDependentRoot,
-            currentDutyDependentRoot));
+            currentDutyDependentRoot,
+            payloadStatus));
     optionalReorgContext.ifPresent(
         context ->
             reorgEvents.add(
@@ -74,6 +75,7 @@ public class TrackingChainHeadChannel implements ChainHeadChannel {
     private final boolean executionOptimistic;
     private final Bytes32 previousDutyDependentRoot;
     private final Bytes32 currentDutyDependentRoot;
+    private final Optional<ForkChoicePayloadStatus> payloadStatus;
 
     public HeadEvent(
         final UInt64 slot,
@@ -82,7 +84,8 @@ public class TrackingChainHeadChannel implements ChainHeadChannel {
         final boolean epochTransition,
         final boolean executionOptimistic,
         final Bytes32 previousDutyDependentRoot,
-        final Bytes32 currentDutyDependentRoot) {
+        final Bytes32 currentDutyDependentRoot,
+        final Optional<ForkChoicePayloadStatus> payloadStatus) {
       this.slot = slot;
       this.stateRoot = stateRoot;
       this.bestBlockRoot = bestBlockRoot;
@@ -90,10 +93,15 @@ public class TrackingChainHeadChannel implements ChainHeadChannel {
       this.executionOptimistic = executionOptimistic;
       this.previousDutyDependentRoot = previousDutyDependentRoot;
       this.currentDutyDependentRoot = currentDutyDependentRoot;
+      this.payloadStatus = payloadStatus;
     }
 
     public UInt64 getSlot() {
       return slot;
+    }
+
+    public Bytes32 getBestBlockRoot() {
+      return bestBlockRoot;
     }
 
     public Bytes32 getPreviousDutyDependentRoot() {
@@ -102,6 +110,10 @@ public class TrackingChainHeadChannel implements ChainHeadChannel {
 
     public Bytes32 getCurrentDutyDependentRoot() {
       return currentDutyDependentRoot;
+    }
+
+    public Optional<ForkChoicePayloadStatus> getPayloadStatus() {
+      return payloadStatus;
     }
 
     @Override
@@ -119,7 +131,8 @@ public class TrackingChainHeadChannel implements ChainHeadChannel {
           && Objects.equals(stateRoot, headEvent.stateRoot)
           && Objects.equals(bestBlockRoot, headEvent.bestBlockRoot)
           && Objects.equals(previousDutyDependentRoot, headEvent.previousDutyDependentRoot)
-          && Objects.equals(currentDutyDependentRoot, headEvent.currentDutyDependentRoot);
+          && Objects.equals(currentDutyDependentRoot, headEvent.currentDutyDependentRoot)
+          && Objects.equals(payloadStatus, headEvent.payloadStatus);
     }
 
     @Override
@@ -131,7 +144,8 @@ public class TrackingChainHeadChannel implements ChainHeadChannel {
           epochTransition,
           executionOptimistic,
           previousDutyDependentRoot,
-          currentDutyDependentRoot);
+          currentDutyDependentRoot,
+          payloadStatus);
     }
 
     @Override
@@ -144,6 +158,7 @@ public class TrackingChainHeadChannel implements ChainHeadChannel {
           .add("executionOptimistic", executionOptimistic)
           .add("previousDutyDependentRoot", previousDutyDependentRoot)
           .add("currentDutyDependentRoot", currentDutyDependentRoot)
+          .add("payloadStatus", payloadStatus)
           .toString();
     }
   }
