@@ -119,6 +119,7 @@ import tech.pegasys.teku.statetransition.util.DebugDataDumper;
 import tech.pegasys.teku.statetransition.validation.BlockBroadcastValidator;
 import tech.pegasys.teku.statetransition.validation.BlockBroadcastValidator.BroadcastValidationResult;
 import tech.pegasys.teku.storage.api.LateBlockReorgPreparationHandler;
+import tech.pegasys.teku.storage.api.TrackingChainHeadChannel.HeadEvent;
 import tech.pegasys.teku.storage.api.TrackingChainHeadChannel.ReorgEvent;
 import tech.pegasys.teku.storage.client.ChainHead;
 import tech.pegasys.teku.storage.client.ChainUpdater;
@@ -1700,6 +1701,37 @@ class ForkChoiceTest {
         .isCompletedWithValue(List.of(attestation));
 
     assertFullPayloadVoteIsPending(targetBlock);
+  }
+
+  @Test
+  void onExecutionPayloadEnvelope_gloasShouldEmitSecondHeadEventOnEmptyToFull() {
+    setupWithSpec(
+        TestSpecFactory.createMinimalGloas(
+            builder -> builder.blsSignatureVerifier(BLSSignatureVerifier.NOOP)));
+    assertThat(forkChoice.applyGenesisExecutionPayloadForGloas()).isCompleted();
+
+    final SignedBlockAndState targetBlock = chainBuilder.generateBlockAtSlot(ONE);
+    final List<HeadEvent> headEvents = storageSystem.chainHeadChannel().getHeadEvents();
+    headEvents.clear();
+
+    importBlock(targetBlock);
+
+    assertThat(headEvents).hasSize(1);
+    assertHeadEvent(headEvents.get(0), targetBlock, ForkChoicePayloadStatus.PAYLOAD_STATUS_EMPTY);
+
+    importPayload(targetBlock);
+
+    assertThat(headEvents).hasSize(2);
+    assertHeadEvent(headEvents.get(1), targetBlock, ForkChoicePayloadStatus.PAYLOAD_STATUS_FULL);
+  }
+
+  private void assertHeadEvent(
+      final HeadEvent headEvent,
+      final SignedBlockAndState expectedBlock,
+      final ForkChoicePayloadStatus expectedPayloadStatus) {
+    assertThat(headEvent.getBestBlockRoot()).isEqualTo(expectedBlock.getRoot());
+    assertThat(headEvent.getSlot()).isEqualTo(expectedBlock.getSlot());
+    assertThat(headEvent.getPayloadStatus()).contains(expectedPayloadStatus);
   }
 
   private void assertFullPayloadVoteIsPending(final SignedBlockAndState targetBlock) {

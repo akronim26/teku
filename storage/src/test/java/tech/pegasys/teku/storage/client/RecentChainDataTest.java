@@ -296,7 +296,8 @@ class RecentChainDataTest {
                 spec.getBeaconStateUtil(bestBlock.getSlot())
                     .getPreviousDutyDependentRoot(bestBlock.getState()),
                 spec.getBeaconStateUtil(bestBlock.getSlot())
-                    .getCurrentDutyDependentRoot(bestBlock.getState())));
+                    .getCurrentDutyDependentRoot(bestBlock.getState()),
+                Optional.empty()));
   }
 
   @Test
@@ -574,7 +575,17 @@ class RecentChainDataTest {
     // Switch head to the FULL node identity (same root, different payloadStatus + execHash).
     gloasRecentChainData.updateHead(ForkChoiceNode.createFull(block.getRoot()), block.getSlot());
 
-    assertThat(gloasStorage.chainHeadChannel().getHeadEvents()).hasSize(1);
+    assertThat(gloasStorage.chainHeadChannel().getHeadEvents())
+        .containsExactly(
+            new HeadEvent(
+                block.getSlot(),
+                block.getStateRoot(),
+                block.getRoot(),
+                false,
+                false,
+                gloasGenesis.getRoot(),
+                gloasGenesis.getRoot(),
+                Optional.of(ForkChoicePayloadStatus.PAYLOAD_STATUS_FULL)));
     final ChainHead newHead = gloasRecentChainData.getChainHead().orElseThrow();
     assertThat(newHead.getPayloadStatus()).isEqualTo(ForkChoicePayloadStatus.PAYLOAD_STATUS_FULL);
     assertThat(newHead.getExecutionBlockHash()).isNotEqualTo(emptyExecutionHash);
