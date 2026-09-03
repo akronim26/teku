@@ -41,7 +41,7 @@ import tech.pegasys.teku.spec.schemas.SchemaDefinitionsElectra;
 import tech.pegasys.teku.spec.schemas.SchemaDefinitionsGloas;
 
 public class GetLightClientFinalityUpdate extends RestApiEndpoint {
-  public static final String ROUTE = "eth/v1/beacon/light_client/finality_update";
+  public static final String ROUTE = "/eth/v1/beacon/light_client/finality_update";
   private final ChainDataProvider chainDataProvider;
   private final SchemaDefinitionCache schemaDefinitionCache;
 
