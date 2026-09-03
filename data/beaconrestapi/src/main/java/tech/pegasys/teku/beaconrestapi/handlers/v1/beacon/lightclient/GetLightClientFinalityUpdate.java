@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import tech.pegasys.teku.api.ChainDataProvider;
+import tech.pegasys.teku.api.DataProvider;
 import tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.MilestoneDependentTypesUtil;
 import tech.pegasys.teku.infrastructure.json.types.SerializableTypeDefinition;
 import tech.pegasys.teku.infrastructure.restapi.endpoints.EndpointMetadata;
@@ -43,6 +44,11 @@ public class GetLightClientFinalityUpdate extends RestApiEndpoint {
   public static final String ROUTE = "eth/v1/beacon/light_client/finality_update";
   private final ChainDataProvider chainDataProvider;
   private final SchemaDefinitionCache schemaDefinitionCache;
+
+  public GetLightClientFinalityUpdate(
+      final SchemaDefinitionCache schemaDefinitionCache, final DataProvider provider) {
+    this(schemaDefinitionCache, provider.getChainDataProvider());
+  }
 
   public GetLightClientFinalityUpdate(
       final SchemaDefinitionCache schemaDefinitionCache,
