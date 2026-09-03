@@ -20,6 +20,7 @@ import static tech.pegasys.teku.infrastructure.http.RestApiConstants.TAG_BEACON;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.util.List;
+import tech.pegasys.teku.api.ChainDataProvider;
 import tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.MilestoneDependentTypesUtil;
 import tech.pegasys.teku.infrastructure.json.types.SerializableTypeDefinition;
 import tech.pegasys.teku.infrastructure.restapi.endpoints.EndpointMetadata;
@@ -35,8 +36,11 @@ import tech.pegasys.teku.spec.schemas.SchemaDefinitionsGloas;
 
 public class GetLightClientFinalityUpdate extends RestApiEndpoint {
   public static final String ROUTE = "eth/v1/beacon/light_client/finality_update";
+  private final ChainDataProvider chainDataProvider;
 
-  public GetLightClientFinalityUpdate(final SchemaDefinitionCache schemaDefinitionCache) {
+  public GetLightClientFinalityUpdate(
+      final SchemaDefinitionCache schemaDefinitionCache,
+      final ChainDataProvider chainDataProvider) {
     super(
         EndpointMetadata.get(ROUTE)
             .operationId("getLightClientFinalityUpdate")
@@ -53,11 +57,12 @@ public class GetLightClientFinalityUpdate extends RestApiEndpoint {
             .withNotFoundResponse()
             .withNotAcceptableResponse()
             .build());
+    this.chainDataProvider = chainDataProvider;
   }
 
   @Override
   public void handleRequest(final RestApiRequest request) throws JsonProcessingException {
-    request.respondError(501, "Not implemented");
+    request.respondOk(chainDataProvider.getLatestLightClientFinalityUpdate());
   }
 
   private static SerializableTypeDefinition<ObjectAndMetaData<LightClientFinalityUpdate>>
