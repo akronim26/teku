@@ -37,8 +37,6 @@ import tech.pegasys.teku.spec.SpecMilestone;
 import tech.pegasys.teku.spec.datastructures.lightclient.LightClientFinalityUpdate;
 import tech.pegasys.teku.spec.schemas.SchemaDefinitionCache;
 import tech.pegasys.teku.spec.schemas.SchemaDefinitionsAltair;
-import tech.pegasys.teku.spec.schemas.SchemaDefinitionsElectra;
-import tech.pegasys.teku.spec.schemas.SchemaDefinitionsGloas;
 
 public class GetLightClientFinalityUpdate extends RestApiEndpoint {
   public static final String ROUTE = "/eth/v1/beacon/light_client/finality_update";
@@ -102,31 +100,10 @@ public class GetLightClientFinalityUpdate extends RestApiEndpoint {
                 new MilestoneDependentTypesUtil.ConditionalSchemaGetter<>(
                     (finalityUpdate, milestone) ->
                         milestoneAtFinalityUpdateSlot(schemaDefinitionCache, finalityUpdate)
-                                .equals(milestone)
-                            && milestone.isGreaterThan(SpecMilestone.PHASE0)
-                            && milestone.isLessThan(SpecMilestone.ELECTRA),
+                            .equals(milestone),
                     SpecMilestone.ALTAIR,
                     schemaDefinitions ->
                         SchemaDefinitionsAltair.required(schemaDefinitions)
-                            .getLightClientFinalityUpdateSchema()),
-                new MilestoneDependentTypesUtil.ConditionalSchemaGetter<>(
-                    (finalityUpdate, milestone) ->
-                        milestoneAtFinalityUpdateSlot(schemaDefinitionCache, finalityUpdate)
-                                .equals(milestone)
-                            && milestone.isGreaterThan(SpecMilestone.ELECTRA)
-                            && milestone.isLessThan(SpecMilestone.GLOAS),
-                    SpecMilestone.ELECTRA,
-                    schemaDefinitions ->
-                        SchemaDefinitionsElectra.required(schemaDefinitions)
-                            .getLightClientFinalityUpdateSchema()),
-                new MilestoneDependentTypesUtil.ConditionalSchemaGetter<>(
-                    (finalityUpdate, milestone) ->
-                        milestoneAtFinalityUpdateSlot(schemaDefinitionCache, finalityUpdate)
-                                .equals(milestone)
-                            && milestone.isGreaterThan(SpecMilestone.GLOAS),
-                    SpecMilestone.GLOAS,
-                    schemaDefinitions ->
-                        SchemaDefinitionsGloas.required(schemaDefinitions)
                             .getLightClientFinalityUpdateSchema())));
 
     return SerializableTypeDefinition.<LightClientFinalityUpdate>object()

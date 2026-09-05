@@ -24,13 +24,18 @@ import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.getRespo
 import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.verifyMetadataErrorResponse;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.io.Resources;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import tech.pegasys.teku.beaconrestapi.AbstractMigratedBeaconHandlerTest;
+import tech.pegasys.teku.infrastructure.json.JsonTestUtil;
 import tech.pegasys.teku.infrastructure.unsigned.UInt64;
+import tech.pegasys.teku.spec.Spec;
 import tech.pegasys.teku.spec.SpecMilestone;
 import tech.pegasys.teku.spec.TestSpecFactory;
 import tech.pegasys.teku.spec.datastructures.lightclient.LightClientFinalityUpdate;
@@ -75,12 +80,32 @@ public class GetLightClientFinalityUpdateTest extends AbstractMigratedBeaconHand
         dataStructureUtil.randomLightClientFinalityUpdate(UInt64.ONE);
 
     final String data = getResponseStringFromMetadata(handler, SC_OK, lightClientFinalityUpdate);
+    final JsonNode responseDataAsJsonNode = JsonTestUtil.parseAsJsonNode(data);
     final String expected =
         Resources.toString(
             Resources.getResource(
                 GetLightClientFinalityUpdateTest.class, "getLightClientFinalityUpdate.json"),
             StandardCharsets.UTF_8);
-    assertThat(data).isEqualTo(expected);
+    final JsonNode expectedAsJsonNode = JsonTestUtil.parseAsJsonNode(expected);
+    assertThat(responseDataAsJsonNode).isEqualTo(expectedAsJsonNode);
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = SpecMilestone.class,
+      names = {"ALTAIR", "ELECTRA", "GLOAS"})
+  void shouldSerializeForEveryMilestoneWithItsOwnSchema(final SpecMilestone milestone)
+      throws Exception {
+    final Spec milestoneSpec = TestSpecFactory.createMinimal(milestone);
+    setSpec(milestoneSpec);
+    setHandler(new GetLightClientFinalityUpdate(schemaDefinitionCache, chainDataProvider));
+
+    final LightClientFinalityUpdate lightClientFinalityUpdate =
+        dataStructureUtil.randomLightClientFinalityUpdate(UInt64.ONE);
+
+    final String data = getResponseStringFromMetadata(handler, SC_OK, lightClientFinalityUpdate);
+
+    assertThat(data).contains("\"version\":\"" + milestone.lowerCaseName() + "\"");
   }
 
   @Test
