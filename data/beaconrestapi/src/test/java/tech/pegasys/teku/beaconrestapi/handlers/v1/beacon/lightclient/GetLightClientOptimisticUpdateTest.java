@@ -15,7 +15,10 @@ package tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.lightclient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
-import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.*;
+import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_INTERNAL_SERVER_ERROR;
+import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_NOT_ACCEPTABLE;
+import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_NOT_FOUND;
+import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_OK;
 import static tech.pegasys.teku.infrastructure.http.RestApiConstants.HEADER_CONSENSUS_VERSION;
 import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.getResponseStringFromMetadata;
 import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.verifyMetadataErrorResponse;
@@ -24,9 +27,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.io.Resources;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import tech.pegasys.teku.beaconrestapi.AbstractMigratedBeaconHandlerTest;
 import tech.pegasys.teku.infrastructure.json.JsonTestUtil;
 import tech.pegasys.teku.infrastructure.unsigned.UInt64;
@@ -81,6 +88,35 @@ public class GetLightClientOptimisticUpdateTest extends AbstractMigratedBeaconHa
             StandardCharsets.UTF_8);
     final JsonNode expectedAsJsonNode = JsonTestUtil.parseAsJsonNode(expected);
     assertThat(responseDataAsJsonNode).isEqualTo(expectedAsJsonNode);
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = SpecMilestone.class,
+      names = {"ALTAIR", "BELLATRIX", "CAPELLA", "DENEB", "ELECTRA", "FULU", "GLOAS"})
+  void shouldSerializeForEveryMilestoneWithItsOwnSchema(final SpecMilestone milestone)
+      throws Exception {
+    setSpec(TestSpecFactory.createMinimal(milestone));
+    setHandler(new GetLightClientOptimisticUpdate(schemaDefinitionCache, chainDataProvider));
+
+    final LightClientOptimisticUpdate lightClientOptimisticUpdate =
+        dataStructureUtil.randomLightClientOptimisticUpdate(UInt64.ONE);
+
+    final Map<String, Object> response =
+        JsonTestUtil.parse(
+            getResponseStringFromMetadata(handler, SC_OK, lightClientOptimisticUpdate));
+
+    assertThat(response.get("version")).isEqualTo(milestone.lowerCaseName());
+    assertThat(JsonTestUtil.getObject(response, "data", "attested_header").keySet())
+        .containsExactlyInAnyOrderElementsOf(expectedHeaderFields(milestone));
+  }
+
+  private static Set<String> expectedHeaderFields(final SpecMilestone milestone) {
+    return switch (milestone) {
+      case ALTAIR, BELLATRIX -> Set.of("beacon");
+      case GLOAS -> Set.of("beacon", "execution_block_hash", "execution_branch");
+      default -> Set.of("beacon", "execution", "execution_branch");
+    };
   }
 
   @Test
