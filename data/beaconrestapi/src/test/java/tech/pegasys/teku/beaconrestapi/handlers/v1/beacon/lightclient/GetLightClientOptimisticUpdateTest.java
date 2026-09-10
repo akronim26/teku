@@ -13,9 +13,18 @@
 
 package tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.lightclient;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.*;
+import static tech.pegasys.teku.infrastructure.http.RestApiConstants.HEADER_CONSENSUS_VERSION;
+import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.getResponseStringFromMetadata;
+import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.verifyMetadataErrorResponse;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.io.Resources;
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.pegasys.teku.beaconrestapi.AbstractMigratedBeaconHandlerTest;
@@ -25,70 +34,67 @@ import tech.pegasys.teku.spec.SpecMilestone;
 import tech.pegasys.teku.spec.TestSpecFactory;
 import tech.pegasys.teku.spec.datastructures.lightclient.LightClientOptimisticUpdate;
 
-import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.*;
-import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.getResponseStringFromMetadata;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
-import static tech.pegasys.teku.infrastructure.http.RestApiConstants.HEADER_CONSENSUS_VERSION;
-import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.verifyMetadataErrorResponse;
-
 public class GetLightClientOptimisticUpdateTest extends AbstractMigratedBeaconHandlerTest {
 
-    @BeforeEach
-    void setup() {
-        setSpec(TestSpecFactory.createMinimalAltair());
-        setHandler(new GetLightClientOptimisticUpdate(schemaDefinitionCache, chainDataProvider));
-    }
+  @BeforeEach
+  void setup() {
+    setSpec(TestSpecFactory.createMinimalAltair());
+    setHandler(new GetLightClientOptimisticUpdate(schemaDefinitionCache, chainDataProvider));
+  }
 
-    @Test
-    void shouldReturnLightClientOptimisticUpdate() throws Exception {
-        final LightClientOptimisticUpdate lightClientOptimisticUpdate = dataStructureUtil.randomLightClientOptimisticUpdate(UInt64.ONE);
+  @Test
+  void shouldReturnLightClientOptimisticUpdate() throws Exception {
+    final LightClientOptimisticUpdate lightClientOptimisticUpdate =
+        dataStructureUtil.randomLightClientOptimisticUpdate(UInt64.ONE);
 
-        when(chainDataProvider.getLatestLightClientOptimisticUpdate()).thenReturn(Optional.of(lightClientOptimisticUpdate));
+    when(chainDataProvider.getLatestLightClientOptimisticUpdate())
+        .thenReturn(Optional.of(lightClientOptimisticUpdate));
 
-        handler.handleRequest(request);
+    handler.handleRequest(request);
 
-        assertThat(request.getResponseCode()).isEqualTo(SC_OK);
-        assertThat(request.getResponseBody()).isEqualTo(lightClientOptimisticUpdate);
-        assertThat(request.getResponseHeaders(HEADER_CONSENSUS_VERSION)).isEqualTo(SpecMilestone.ALTAIR.lowerCaseName());
-    }
+    assertThat(request.getResponseCode()).isEqualTo(SC_OK);
+    assertThat(request.getResponseBody()).isEqualTo(lightClientOptimisticUpdate);
+    assertThat(request.getResponseHeaders(HEADER_CONSENSUS_VERSION))
+        .isEqualTo(SpecMilestone.ALTAIR.lowerCaseName());
+  }
 
-    @Test
-    void shouldReturnNotFoundWhenNoOptimisticUpdate() throws Exception {
-        when(chainDataProvider.getLatestLightClientOptimisticUpdate()).thenReturn(Optional.empty());
+  @Test
+  void shouldReturnNotFoundWhenNoOptimisticUpdate() throws Exception {
+    when(chainDataProvider.getLatestLightClientOptimisticUpdate()).thenReturn(Optional.empty());
 
-        handler.handleRequest(request);
+    handler.handleRequest(request);
 
-        assertThat(request.getResponseCode()).isEqualTo(SC_NOT_FOUND);
-    }
+    assertThat(request.getResponseCode()).isEqualTo(SC_NOT_FOUND);
+  }
 
-    @Test
-    void metadata_shouldHandle200() throws Exception {
-        final LightClientOptimisticUpdate lightClientOptimisticUpdate = dataStructureUtil.randomLightClientOptimisticUpdate(UInt64.ONE);
+  @Test
+  void metadata_shouldHandle200() throws Exception {
+    final LightClientOptimisticUpdate lightClientOptimisticUpdate =
+        dataStructureUtil.randomLightClientOptimisticUpdate(UInt64.ONE);
 
-        final String data = getResponseStringFromMetadata(handler, SC_OK, lightClientOptimisticUpdate);
-        final JsonNode responseDataAsJsonNode = JsonTestUtil.parseAsJsonNode(data);
-        final String expected = Resources.toString(Resources.getResource(GetLightClientOptimisticUpdateTest.class, "getLightClientOptimisticUpdate.json"), StandardCharsets.UTF_8);
-        final JsonNode expectedAsJsonNode = JsonTestUtil.parseAsJsonNode(expected);
-        assertThat(responseDataAsJsonNode).isEqualTo(expectedAsJsonNode);
-    }
+    final String data = getResponseStringFromMetadata(handler, SC_OK, lightClientOptimisticUpdate);
+    final JsonNode responseDataAsJsonNode = JsonTestUtil.parseAsJsonNode(data);
+    final String expected =
+        Resources.toString(
+            Resources.getResource(
+                GetLightClientOptimisticUpdateTest.class, "getLightClientOptimisticUpdate.json"),
+            StandardCharsets.UTF_8);
+    final JsonNode expectedAsJsonNode = JsonTestUtil.parseAsJsonNode(expected);
+    assertThat(responseDataAsJsonNode).isEqualTo(expectedAsJsonNode);
+  }
 
-    @Test
-    void metadata_shouldHandle404() throws JsonProcessingException {
-        verifyMetadataErrorResponse(handler, SC_NOT_FOUND);
-    }
+  @Test
+  void metadata_shouldHandle404() throws JsonProcessingException {
+    verifyMetadataErrorResponse(handler, SC_NOT_FOUND);
+  }
 
-    @Test
-    void metadata_shouldHandle406() throws JsonProcessingException {
-        verifyMetadataErrorResponse(handler, SC_NOT_ACCEPTABLE);
-    }
+  @Test
+  void metadata_shouldHandle406() throws JsonProcessingException {
+    verifyMetadataErrorResponse(handler, SC_NOT_ACCEPTABLE);
+  }
 
-    @Test
-    void metadata_shouldHandle500() throws JsonProcessingException {
-        verifyMetadataErrorResponse(handler, SC_INTERNAL_SERVER_ERROR);
-    }
+  @Test
+  void metadata_shouldHandle500() throws JsonProcessingException {
+    verifyMetadataErrorResponse(handler, SC_INTERNAL_SERVER_ERROR);
+  }
 }
