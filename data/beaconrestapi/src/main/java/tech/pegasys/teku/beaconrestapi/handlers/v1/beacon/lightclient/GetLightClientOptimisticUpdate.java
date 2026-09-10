@@ -14,7 +14,9 @@
 package tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.lightclient;
 
 import static tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.MilestoneDependentTypesUtil.getMultipleSchemaDefinitionFromMilestone;
-import static tech.pegasys.teku.ethereum.json.types.EthereumTypes.*;
+import static tech.pegasys.teku.ethereum.json.types.EthereumTypes.ETH_CONSENSUS_HEADER_TYPE;
+import static tech.pegasys.teku.ethereum.json.types.EthereumTypes.MILESTONE_TYPE;
+import static tech.pegasys.teku.ethereum.json.types.EthereumTypes.sszResponseType;
 import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_NOT_FOUND;
 import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_OK;
 import static tech.pegasys.teku.infrastructure.http.RestApiConstants.HEADER_CONSENSUS_VERSION;
@@ -43,8 +45,7 @@ public class GetLightClientOptimisticUpdate extends RestApiEndpoint {
 
   public GetLightClientOptimisticUpdate(
       final SchemaDefinitionCache schemaDefinitionCache, final DataProvider dataProvider) {
-    return GetLightClientOptimisticUpdate(
-        schemaDefinitionCache, dataProvider.getChainDataProvider());
+    this(schemaDefinitionCache, dataProvider.getChainDataProvider());
   }
 
   public GetLightClientOptimisticUpdate(
