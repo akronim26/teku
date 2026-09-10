@@ -13,17 +13,24 @@
 
 package tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.lightclient;
 
-import static tech.pegasys.teku.ethereum.json.types.EthereumTypes.ETH_CONSENSUS_HEADER_TYPE;
-import static tech.pegasys.teku.ethereum.json.types.EthereumTypes.sszResponseType;
+import static tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.MilestoneDependentTypesUtil.getMultipleSchemaDefinitionFromMilestone;
+import static tech.pegasys.teku.ethereum.json.types.EthereumTypes.*;
 import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_OK;
 import static tech.pegasys.teku.infrastructure.http.RestApiConstants.TAG_BEACON;
 
 import tech.pegasys.teku.api.ChainDataProvider;
 import tech.pegasys.teku.api.DataProvider;
+import tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.MilestoneDependentTypesUtil;
+import tech.pegasys.teku.infrastructure.json.types.SerializableTypeDefinition;
 import tech.pegasys.teku.infrastructure.restapi.endpoints.EndpointMetadata;
 import tech.pegasys.teku.infrastructure.restapi.endpoints.RestApiEndpoint;
+import tech.pegasys.teku.spec.SpecMilestone;
 import tech.pegasys.teku.spec.datastructures.lightclient.LightClientOptimisticUpdate;
 import tech.pegasys.teku.spec.schemas.SchemaDefinitionCache;
+import tech.pegasys.teku.spec.schemas.SchemaDefinitionsAltair;
+
+import java.util.List;
+import java.util.function.Function;
 
 public class GetLightClientOptimisticUpdate extends RestApiEndpoint {
   public static final String ROUTE = "/eth/v1/beacon/light_client/optimistic_update";
@@ -59,5 +66,24 @@ public class GetLightClientOptimisticUpdate extends RestApiEndpoint {
             .build());
     this.schemaDefinitionCache = schemaDefinitionCache;
     this.chainDataProvider = chainDataProvider;
+  }
+
+  private static SerializableTypeDefinition<LightClientOptimisticUpdate> getResponseType(final SchemaDefinitionCache schemaDefinitionCache) {
+    final SerializableTypeDefinition<LightClientOptimisticUpdate> lightClientOptimisticUpdateType = getMultipleSchemaDefinitionFromMilestone(schemaDefinitionCache,
+            "LightClientOptimisticUpdate", List.of(new MilestoneDependentTypesUtil.ConditionalSchemaGetter<>((optimisticUpdate, milestone) -> milestoneAtOptimisticSlot(schemaDefinitionCache, optimisticUpdate).equals(milestone),
+    SpecMilestone.ALTAIR, schemaDefinitions -> SchemaDefinitionsAltair.required(schemaDefinitions).getLightClientOptimisticUpdateSchema())));
+
+    return SerializableTypeDefinition.<LightClientOptimisticUpdate>object()
+            .name("GetLightClientOptimisticUpdateResponse")
+            .withField(
+                    "version",
+                    MILESTONE_TYPE,
+                    optimisticUpdate -> milestoneAtOptimisticSlot(schemaDefinitionCache, optimisticUpdate)
+            ).withField("data", lightClientOptimisticUpdateType, Function.identity())
+            .build();
+  }
+
+  private static SpecMilestone milestoneAtOptimisticSlot(final SchemaDefinitionCache schemaDefinitionCache, final LightClientOptimisticUpdate optimisticUpdate) {
+    return schemaDefinitionCache.milestoneAtSlot(optimisticUpdate.getAttestedHeader().getBeacon().getSlot());
   }
 }
