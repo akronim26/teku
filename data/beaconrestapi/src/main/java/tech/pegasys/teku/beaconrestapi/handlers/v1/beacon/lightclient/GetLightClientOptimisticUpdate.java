@@ -15,21 +15,26 @@ package tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.lightclient;
 
 import static tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.MilestoneDependentTypesUtil.getMultipleSchemaDefinitionFromMilestone;
 import static tech.pegasys.teku.ethereum.json.types.EthereumTypes.*;
+import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_NOT_FOUND;
 import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_OK;
+import static tech.pegasys.teku.infrastructure.http.RestApiConstants.HEADER_CONSENSUS_VERSION;
 import static tech.pegasys.teku.infrastructure.http.RestApiConstants.TAG_BEACON;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import tech.pegasys.teku.api.ChainDataProvider;
 import tech.pegasys.teku.api.DataProvider;
 import tech.pegasys.teku.beaconrestapi.handlers.v1.beacon.MilestoneDependentTypesUtil;
 import tech.pegasys.teku.infrastructure.json.types.SerializableTypeDefinition;
 import tech.pegasys.teku.infrastructure.restapi.endpoints.EndpointMetadata;
 import tech.pegasys.teku.infrastructure.restapi.endpoints.RestApiEndpoint;
+import tech.pegasys.teku.infrastructure.restapi.endpoints.RestApiRequest;
 import tech.pegasys.teku.spec.SpecMilestone;
 import tech.pegasys.teku.spec.datastructures.lightclient.LightClientOptimisticUpdate;
 import tech.pegasys.teku.spec.schemas.SchemaDefinitionCache;
 import tech.pegasys.teku.spec.schemas.SchemaDefinitionsAltair;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 public class GetLightClientOptimisticUpdate extends RestApiEndpoint {
@@ -66,6 +71,21 @@ public class GetLightClientOptimisticUpdate extends RestApiEndpoint {
             .build());
     this.schemaDefinitionCache = schemaDefinitionCache;
     this.chainDataProvider = chainDataProvider;
+  }
+
+  @Override
+  public void handleRequest(final RestApiRequest request) throws JsonProcessingException {
+    final Optional<LightClientOptimisticUpdate> maybeOptimisticUpdate = chainDataProvider.getLatestLightClientOptimisticUpdate();
+
+    if (maybeOptimisticUpdate.isEmpty()) {
+      request.respondError(SC_NOT_FOUND, "Light client optimistic update is not available");
+      return;
+    }
+
+    final LightClientOptimisticUpdate optimisticUpdate = maybeOptimisticUpdate.get();
+    request.header(HEADER_CONSENSUS_VERSION, milestoneAtOptimisticSlot(schemaDefinitionCache, optimisticUpdate).lowerCaseName());
+    request.respondOk(optimisticUpdate);
+
   }
 
   private static SerializableTypeDefinition<LightClientOptimisticUpdate> getResponseType(final SchemaDefinitionCache schemaDefinitionCache) {
