@@ -44,13 +44,13 @@ public class GetLightClientOptimisticUpdate extends RestApiEndpoint {
   private final SchemaDefinitionCache schemaDefinitionCache;
 
   public GetLightClientOptimisticUpdate(
-      final SchemaDefinitionCache schemaDefinitionCache, final DataProvider dataProvider) {
-    this(schemaDefinitionCache, dataProvider.getChainDataProvider());
+      final DataProvider dataProvider, final SchemaDefinitionCache schemaDefinitionCache) {
+    this(dataProvider.getChainDataProvider(), schemaDefinitionCache);
   }
 
   public GetLightClientOptimisticUpdate(
-      final SchemaDefinitionCache schemaDefinitionCache,
-      final ChainDataProvider chainDataProvider) {
+      final ChainDataProvider chainDataProvider,
+      final SchemaDefinitionCache schemaDefinitionCache) {
     super(
         EndpointMetadata.get(ROUTE)
             .operationId("getLightClientOptimisticUpdate")

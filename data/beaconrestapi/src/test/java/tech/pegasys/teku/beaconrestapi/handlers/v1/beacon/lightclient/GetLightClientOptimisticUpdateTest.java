@@ -20,6 +20,7 @@ import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_NOT_ACCEP
 import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_NOT_FOUND;
 import static tech.pegasys.teku.infrastructure.http.HttpStatusCodes.SC_OK;
 import static tech.pegasys.teku.infrastructure.http.RestApiConstants.HEADER_CONSENSUS_VERSION;
+import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.getResponseSszFromMetadata;
 import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.getResponseStringFromMetadata;
 import static tech.pegasys.teku.infrastructure.restapi.MetadataTestUtil.verifyMetadataErrorResponse;
 
@@ -35,7 +36,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import tech.pegasys.teku.beaconrestapi.AbstractMigratedBeaconHandlerTest;
+import tech.pegasys.teku.infrastructure.http.ContentTypes;
 import tech.pegasys.teku.infrastructure.json.JsonTestUtil;
+import tech.pegasys.teku.infrastructure.restapi.openapi.response.ResponseContentTypeDefinition;
 import tech.pegasys.teku.infrastructure.unsigned.UInt64;
 import tech.pegasys.teku.spec.SpecMilestone;
 import tech.pegasys.teku.spec.TestSpecFactory;
@@ -46,7 +49,7 @@ public class GetLightClientOptimisticUpdateTest extends AbstractMigratedBeaconHa
   @BeforeEach
   void setup() {
     setSpec(TestSpecFactory.createMinimalAltair());
-    setHandler(new GetLightClientOptimisticUpdate(schemaDefinitionCache, chainDataProvider));
+    setHandler(new GetLightClientOptimisticUpdate(chainDataProvider, schemaDefinitionCache));
   }
 
   @Test
@@ -97,7 +100,7 @@ public class GetLightClientOptimisticUpdateTest extends AbstractMigratedBeaconHa
   void shouldSerializeForEveryMilestoneWithItsOwnSchema(final SpecMilestone milestone)
       throws Exception {
     setSpec(TestSpecFactory.createMinimal(milestone));
-    setHandler(new GetLightClientOptimisticUpdate(schemaDefinitionCache, chainDataProvider));
+    setHandler(new GetLightClientOptimisticUpdate(chainDataProvider, schemaDefinitionCache));
 
     final LightClientOptimisticUpdate lightClientOptimisticUpdate =
         dataStructureUtil.randomLightClientOptimisticUpdate(UInt64.ONE);
@@ -107,6 +110,8 @@ public class GetLightClientOptimisticUpdateTest extends AbstractMigratedBeaconHa
             getResponseStringFromMetadata(handler, SC_OK, lightClientOptimisticUpdate));
 
     assertThat(response.get("version")).isEqualTo(milestone.lowerCaseName());
+    assertThat(sszConsensusVersionHeader(lightClientOptimisticUpdate))
+        .isEqualTo(milestone.lowerCaseName());
     assertThat(JsonTestUtil.getObject(response, "data", "attested_header").keySet())
         .containsExactlyInAnyOrderElementsOf(expectedHeaderFields(milestone));
   }
@@ -117,6 +122,24 @@ public class GetLightClientOptimisticUpdateTest extends AbstractMigratedBeaconHa
       case GLOAS -> Set.of("beacon", "execution_block_hash", "execution_branch");
       default -> Set.of("beacon", "execution", "execution_branch");
     };
+  }
+
+  @Test
+  void metadata_shouldHandleSsz200() throws Exception {
+    final LightClientOptimisticUpdate lightClientOptimisticUpdate =
+        dataStructureUtil.randomLightClientOptimisticUpdate(UInt64.ONE);
+
+    assertThat(getResponseSszFromMetadata(handler, SC_OK, lightClientOptimisticUpdate))
+        .isEqualTo(lightClientOptimisticUpdate.sszSerialize().toArray());
+  }
+
+  @SuppressWarnings("unchecked")
+  private String sszConsensusVersionHeader(
+      final LightClientOptimisticUpdate lightClientOptimisticUpdate) {
+    final ResponseContentTypeDefinition<LightClientOptimisticUpdate> sszType =
+        (ResponseContentTypeDefinition<LightClientOptimisticUpdate>)
+            handler.getMetadata().getResponseType(SC_OK, ContentTypes.OCTET_STREAM);
+    return sszType.getAdditionalHeaders(lightClientOptimisticUpdate).get(HEADER_CONSENSUS_VERSION);
   }
 
   @Test
