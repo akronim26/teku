@@ -36,7 +36,16 @@ import tech.pegasys.teku.spec.datastructures.lightclient.LightClientBootstrapSch
 import tech.pegasys.teku.spec.datastructures.state.beaconstate.BeaconState;
 import tech.pegasys.teku.spec.schemas.SchemaDefinitionsAltair;
 
-@TestSpecContext(milestone = {SpecMilestone.ALTAIR, SpecMilestone.ELECTRA})
+@TestSpecContext(
+    milestone = {
+      SpecMilestone.ALTAIR,
+      SpecMilestone.CAPELLA,
+      SpecMilestone.DENEB,
+      SpecMilestone.ELECTRA,
+      SpecMilestone.FULU,
+      SpecMilestone.GLOAS,
+      SpecMilestone.HEZE
+    })
 public class GetLightClientBootstrapIntegrationTest
     extends AbstractDataBackedRestAPIIntegrationTest {
 
