@@ -932,9 +932,8 @@ public class Spec {
   /**
    * Dispatched on the state's fork rather than an epoch taken from the slashing, so that pool and
    * gossip validation apply the same milestone's rules that block processing later will. The slots
-   * inside a slashing are attacker controlled and unbounded, and from Gloas the attesting indices
-   * bound is enforced in the validation logic rather than by the SSZ schema - so dispatching on
-   * them would let a slashing naming a pre-Gloas epoch skip that bound.
+   * inside a slashing are attacker controlled and unbounded, so dispatching on them would let the
+   * sender pick an arbitrarily old milestone's validation rules.
    */
   public Optional<OperationInvalidReason> validateAttesterSlashing(
       final BeaconState state, final AttesterSlashing attesterSlashing) {
@@ -955,6 +954,13 @@ public class Spec {
     return atState(state)
         .getOperationValidator()
         .validateVoluntaryExit(state.getFork(), state, signedExit);
+  }
+
+  public Optional<OperationInvalidReason> validateVoluntaryExitForGossip(
+      final BeaconState state, final SignedVoluntaryExit signedExit) {
+    return atState(state)
+        .getOperationValidator()
+        .validateVoluntaryExitForGossip(state.getFork(), state, signedExit);
   }
 
   public Optional<OperationInvalidReason> validateBlsToExecutionChange(
@@ -1471,13 +1477,21 @@ public class Spec {
         .orElse(false);
   }
 
+  public boolean isPayloadAttestationAvailableAtSlot(final UInt64 slot) {
+    return atSlot(slot)
+        .miscHelpers()
+        .toVersionGloas()
+        .map(MiscHelpersGloas::isPayloadAttestationAvailable)
+        .orElse(false);
+  }
+
   // Electra Utils
   public boolean isFormerDepositMechanismDisabled(final BeaconState state) {
     return atState(state).miscHelpers().isFormerDepositMechanismDisabled(state);
   }
 
   // Gloas Utils
-  public boolean isProposerPreferencesAvailableAtEpoch(final UInt64 epoch) {
+  public boolean areProposerAndBuilderPreferencesRequiredAtEpoch(final UInt64 epoch) {
     return atEpoch(epoch).miscHelpers().toVersionGloas().isPresent();
   }
 

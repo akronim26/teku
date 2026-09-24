@@ -13,7 +13,6 @@
 
 package tech.pegasys.teku.spec.logic.versions.gloas.block;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static tech.pegasys.teku.spec.config.SpecConfigGloas.BUILDER_INDEX_SELF_BUILD;
 import static tech.pegasys.teku.spec.config.SpecConfigGloas.PAYLOAD_BUILDER_VERSION;
 
@@ -22,7 +21,6 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import tech.pegasys.teku.bls.BLSSignatureVerifier;
 import tech.pegasys.teku.infrastructure.ssz.SszList;
 import tech.pegasys.teku.infrastructure.unsigned.UInt64;
 import tech.pegasys.teku.spec.cache.IndexedAttestationCache;
@@ -47,7 +45,6 @@ import tech.pegasys.teku.spec.datastructures.state.beaconstate.MutableBeaconStat
 import tech.pegasys.teku.spec.datastructures.state.beaconstate.versions.gloas.BeaconStateGloas;
 import tech.pegasys.teku.spec.datastructures.state.beaconstate.versions.gloas.MutableBeaconStateGloas;
 import tech.pegasys.teku.spec.datastructures.state.versions.gloas.BuilderPendingPayment;
-import tech.pegasys.teku.spec.logic.common.helpers.BeaconStateMutators;
 import tech.pegasys.teku.spec.logic.common.helpers.BeaconStateMutators.ValidatorExitContext;
 import tech.pegasys.teku.spec.logic.common.operations.OperationSignatureVerifier;
 import tech.pegasys.teku.spec.logic.common.operations.validation.OperationValidator;
@@ -71,7 +68,6 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
   private static final Logger LOG = LogManager.getLogger();
 
   private final PredicatesGloas predicatesGloas;
-  private final SpecConfigGloas specConfigGloas;
   private final SchemaDefinitionsGloas schemaDefinitionsGloas;
   private final MiscHelpersGloas miscHelpersGloas;
   private final BeaconStateAccessorsGloas beaconStateAccessorsGloas;
@@ -112,7 +108,6 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
         executionRequestsDataCodec,
         executionRequestsProcessor);
     this.predicatesGloas = predicates;
-    this.specConfigGloas = specConfig;
     this.schemaDefinitionsGloas = schemaDefinitions;
     this.miscHelpersGloas = miscHelpers;
     this.beaconStateAccessorsGloas = beaconStateAccessors;
@@ -122,23 +117,18 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
   }
 
   @Override
-  public UInt64 executionProcessing(
+  public void executionProcessing(
       final MutableBeaconState genericState,
       final BeaconBlock beaconBlock,
-      final Optional<? extends OptimisticExecutionPayloadExecutor> payloadExecutor,
-      final Supplier<BeaconStateMutators.ValidatorExitContext> validatorExitContextSupplier,
-      final UInt64 parentSlotFallback)
+      final Optional<? extends OptimisticExecutionPayloadExecutor> payloadExecutor)
       throws BlockProcessingException {
     safelyProcess(
-        () ->
-            processParentExecutionPayload(genericState, beaconBlock, validatorExitContextSupplier));
-    processWithdrawals(genericState, Optional.empty());
-    return safelyProcessAndReturn(
-        () ->
-            processExecutionPayloadBid(
-                genericState,
-                BeaconBlockBodyGloas.required(beaconBlock.getBody())
-                    .getSignedExecutionPayloadBid()));
+        () -> {
+          processWithdrawals(genericState, Optional.empty());
+          processExecutionPayloadBid(
+              genericState,
+              BeaconBlockBodyGloas.required(beaconBlock.getBody()).getSignedExecutionPayloadBid());
+        });
   }
 
   // process_parent_execution_payload
@@ -177,24 +167,9 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
       final ExecutionRequests requests,
       final Supplier<ValidatorExitContext> validatorExitContextSupplier) {
     final ExecutionRequestsGloas requestsGloas = ExecutionRequestsGloas.required(requests);
-    checkArgument(
-        requests.getWithdrawals().size() <= specConfigGloas.getMaxWithdrawalRequestsPerPayload(),
-        "Too many withdrawal requests");
-    checkArgument(
-        requests.getConsolidations().size()
-            <= specConfigGloas.getMaxConsolidationRequestsPerPayload(),
-        "Too many consolidation requests");
-    checkArgument(
-        requestsGloas.getBuilderDeposits().size()
-            <= specConfigGloas.getMaxBuilderDepositRequestsPerPayload(),
-        "Too many builder deposit requests");
-    checkArgument(
-        requestsGloas.getBuilderExits().size()
-            <= specConfigGloas.getMaxBuilderExitRequestsPerPayload(),
-        "Too many builder exit requests");
 
     final ExecutionPayloadBid parentBid = state.getLatestExecutionPayloadBid();
-    final UInt64 parentSlot = parentBid.getSlot();
+    final UInt64 parentSlot = state.getLatestBlockHeader().getSlot();
     final UInt64 parentEpoch = miscHelpers.computeEpochAtSlot(parentSlot);
 
     // Process execution requests from parent's payload. The execution requests are processed at
@@ -257,7 +232,7 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
 
   // process_execution_payload_bid
   @Override
-  public UInt64 processExecutionPayloadBid(
+  public void processExecutionPayloadBid(
       final MutableBeaconState state, final SignedExecutionPayloadBid signedBid)
       throws BlockProcessingException {
 
@@ -293,7 +268,7 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
         throw new BlockProcessingException("Builder doesn't have funds to cover the bid");
       }
       if (!operationSignatureVerifier.verifyExecutionPayloadBidSignature(
-          state, signedBid, BLSSignatureVerifier.SIMPLE)) {
+          state, signedBid, specConfig.getBLSSignatureVerifier())) {
         throw new BlockProcessingException("Signature for the signed bind was invalid");
       }
     }
@@ -355,9 +330,7 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
     }
 
     // Cache the execution payload bid
-    final UInt64 parentSlot = stateGloas.getLatestExecutionPayloadBid().getSlot();
     stateGloas.setLatestExecutionPayloadBid(bid);
-    return parentSlot;
   }
 
   @Override
@@ -457,32 +430,7 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
       final Supplier<ValidatorExitContext> validatorExitContextSupplier,
       final UInt64 parentSlot)
       throws BlockProcessingException {
-    final BeaconBlockBodyGloas bodyGloas = BeaconBlockBodyGloas.required(body);
-    safelyProcess(
-        () -> {
-          checkArgument(
-              body.getProposerSlashings().size() <= specConfigGloas.getMaxProposerSlashings(),
-              "Too many proposer slashings");
-          checkArgument(
-              body.getAttesterSlashings().size()
-                  <= specConfigGloas.getMaxAttesterSlashingsElectra(),
-              "Too many attester slashings");
-          checkArgument(
-              body.getAttestations().size() <= specConfigGloas.getMaxAttestationsElectra(),
-              "Too many attestations");
-          checkArgument(
-              body.getVoluntaryExits().size() <= specConfigGloas.getMaxVoluntaryExits(),
-              "Too many voluntary exits");
-          checkArgument(
-              bodyGloas.getBlsToExecutionChanges().size()
-                  <= specConfigGloas.getMaxBlsToExecutionChanges(),
-              "Too many BLS to execution changes");
-          checkArgument(
-              bodyGloas.getPayloadAttestations().size()
-                  <= specConfigGloas.getMaxPayloadAttestations(),
-              "Too many payload attestations");
-        });
-
+    // The operation count limits are enforced by the progressive list schemas.
     super.processOperationsNoValidation(
         state, body, indexedAttestationCache, validatorExitContextSupplier, parentSlot);
 
@@ -522,8 +470,16 @@ public class BlockProcessorGloas extends BlockProcessorFulu {
         throw new BlockProcessingException("Attestation is NOT for the previous slot");
       }
       // Verify signature
-      final IndexedPayloadAttestationLight indexedPayloadAttestation =
-          beaconStateAccessorsGloas.getIndexedPayloadAttestation(state, payloadAttestation);
+      final IndexedPayloadAttestationLight indexedPayloadAttestation;
+      try {
+        indexedPayloadAttestation =
+            beaconStateAccessorsGloas.getIndexedPayloadAttestation(state, payloadAttestation);
+      } catch (final IllegalArgumentException e) {
+        // get_ptc rejects slots outside the queryable window, e.g. before the Gloas fork epoch
+        // this try\catch is required by reference tests. Production code already wraps this method
+        // via safelyProcess.
+        throw new BlockProcessingException(e);
+      }
 
       if (!attestationUtilGloas.isValidIndexedPayloadAttestation(
           state, indexedPayloadAttestation)) {

@@ -96,10 +96,12 @@ import tech.pegasys.teku.spec.schemas.SchemaDefinitionsGloas;
 import tech.pegasys.teku.statetransition.attestation.DeferredAttestations;
 import tech.pegasys.teku.statetransition.attestation.VoteUpdates;
 import tech.pegasys.teku.statetransition.block.BlockImportPerformance;
+import tech.pegasys.teku.statetransition.execution.ReceivedExecutionPayloadEventsChannel;
 import tech.pegasys.teku.statetransition.forkchoice.fastconfirmation.FastConfirmationTracker;
 import tech.pegasys.teku.statetransition.forkchoice.fastconfirmation.ForkChoiceFastConfirmation;
 import tech.pegasys.teku.statetransition.payloadattestation.ValidatablePayloadAttestationMessage;
 import tech.pegasys.teku.statetransition.util.DebugDataDumper;
+import tech.pegasys.teku.statetransition.util.ShufflingDependentRootUtil;
 import tech.pegasys.teku.statetransition.validation.AttestationStateSelector;
 import tech.pegasys.teku.statetransition.validation.BlockBroadcastValidator;
 import tech.pegasys.teku.statetransition.validation.InternalValidationResult;
@@ -262,15 +264,27 @@ public class ForkChoice implements ForkChoiceUpdatedResultSubscriber {
                     forkChoiceUtil));
   }
 
-  /** on_execution_payload_envelope */
   public SafeFuture<ExecutionPayloadImportResult> onExecutionPayloadEnvelope(
       final SignedExecutionPayloadEnvelope signedEnvelope,
       final ExecutionLayerChannel executionLayer) {
+    return onExecutionPayloadEnvelope(signedEnvelope, executionLayer, Optional.empty());
+  }
+
+  /** on_execution_payload_envelope */
+  public SafeFuture<ExecutionPayloadImportResult> onExecutionPayloadEnvelope(
+      final SignedExecutionPayloadEnvelope signedEnvelope,
+      final ExecutionLayerChannel executionLayer,
+      final Optional<ReceivedExecutionPayloadEventsChannel>
+          receivedExecutionPayloadEventsChannelPublisher) {
     return recentChainData
         .retrieveBlockAndState(signedEnvelope.getBeaconBlockRoot())
         .thenCompose(
             maybeBlockAndState ->
-                onExecutionPayloadEnvelope(signedEnvelope, maybeBlockAndState, executionLayer));
+                onExecutionPayloadEnvelope(
+                    signedEnvelope,
+                    maybeBlockAndState,
+                    executionLayer,
+                    receivedExecutionPayloadEventsChannelPublisher));
   }
 
   public SafeFuture<AttestationProcessingResult> onAttestation(
@@ -383,16 +397,16 @@ public class ForkChoice implements ForkChoiceUpdatedResultSubscriber {
     }
     final IntSet ptcPositions =
         validatableMessage
-            .getPtcPositions()
+            .getPayloadTimelinessCommitteePositions()
             .orElseThrow(
                 () ->
                     new IllegalStateException(
-                        "PTC positions must be calculated before recording a payload attestation vote"));
+                        "Payload Timeliness Committee positions must be calculated before recording a payload attestation vote"));
     recentChainData
         .getUpdatableForkChoiceStrategy()
         .ifPresent(
             strategy ->
-                strategy.onPtcVote(
+                strategy.onPayloadTimelinessCommitteeVote(
                     validatableMessage.getData().getBeaconBlockRoot(),
                     ptcPositions,
                     validatableMessage.getData().isPayloadPresent(),
@@ -652,7 +666,9 @@ public class ForkChoice implements ForkChoiceUpdatedResultSubscriber {
   private SafeFuture<ExecutionPayloadImportResult> onExecutionPayloadEnvelope(
       final SignedExecutionPayloadEnvelope signedEnvelope,
       final Optional<SignedBlockAndState> blockAndState,
-      final ExecutionLayerChannel executionLayer) {
+      final ExecutionLayerChannel executionLayer,
+      final Optional<ReceivedExecutionPayloadEventsChannel>
+          receivedExecutionPayloadEventsChannelPublisher) {
     if (blockAndState.isEmpty()) {
       return SafeFuture.completedFuture(
           ExecutionPayloadImportResult.FAILED_UNKNOWN_BEACON_BLOCK_ROOT);
@@ -686,7 +702,16 @@ public class ForkChoice implements ForkChoiceUpdatedResultSubscriber {
     }
 
     final SafeFuture<? extends DataAndValidationResult<?>> dataAndValidationResultFuture =
-        availabilityChecker.getAndLogAvailabilityCheckResult(LOG);
+        availabilityChecker
+            .getAndLogAvailabilityCheckResult(LOG)
+            .thenPeek(
+                dataAndValidationResult -> {
+                  if (dataAndValidationResult.isSuccess()) {
+                    // notify the execution payload is available
+                    receivedExecutionPayloadEventsChannelPublisher.ifPresent(
+                        publisher -> publisher.onExecutionPayloadAvailable(signedEnvelope));
+                  }
+                });
 
     return payloadExecutor
         .getExecutionResult()
@@ -1014,11 +1039,7 @@ public class ForkChoice implements ForkChoiceUpdatedResultSubscriber {
   }
 
   private Optional<UInt64> getShufflingDependentSlot(final UInt64 epoch) {
-    final int minSeedLookahead = spec.getSpecConfig(epoch).getMinSeedLookahead();
-    if (epoch.isLessThanOrEqualTo(UInt64.valueOf(minSeedLookahead))) {
-      return Optional.empty();
-    }
-    return Optional.of(spec.computeStartSlotAtEpoch(epoch.minus(minSeedLookahead)).minus(1));
+    return ShufflingDependentRootUtil.getShufflingDependentSlotForEpoch(spec, epoch);
   }
 
   private Optional<List<BlobSidecar>> extractBlobSidecarsFromValidationResults(
@@ -1304,7 +1325,8 @@ public class ForkChoice implements ForkChoiceUpdatedResultSubscriber {
                 getPayloadAttestationMessagesFromBlock(attestedBlockState, payloadAttestation)
                     .forEach(
                         validatableMessage -> {
-                          validatableMessage.calculatePtcPositions(spec, attestedBlockState);
+                          validatableMessage.calculatePayloadTimelinessCommitteePositions(
+                              spec, attestedBlockState);
                           onPayloadAttestationMessage(
                               validatableMessage, InternalValidationResult.ACCEPT, false);
                         }));
@@ -1314,7 +1336,7 @@ public class ForkChoice implements ForkChoiceUpdatedResultSubscriber {
   List<ValidatablePayloadAttestationMessage> getPayloadAttestationMessagesFromBlock(
       final BeaconState attestedBlockState, final PayloadAttestation payloadAttestation) {
     final UInt64 slot = payloadAttestation.getData().getSlot();
-    final IntList ptc = spec.getPtc(attestedBlockState, slot);
+    final IntList payloadTimelinessCommittee = spec.getPtc(attestedBlockState, slot);
     final SchemaDefinitionsGloas schemaDefinitions =
         SchemaDefinitionsGloas.required(spec.atSlot(slot).getSchemaDefinitions());
     return payloadAttestation
@@ -1326,7 +1348,7 @@ public class ForkChoice implements ForkChoiceUpdatedResultSubscriber {
                   schemaDefinitions
                       .getPayloadAttestationMessageSchema()
                       .create(
-                          UInt64.valueOf(ptc.getInt(ptcPosition)),
+                          UInt64.valueOf(payloadTimelinessCommittee.getInt(ptcPosition)),
                           payloadAttestation.getData(),
                           BLSSignature.empty());
               return ValidatablePayloadAttestationMessage.fromBlock(message);
