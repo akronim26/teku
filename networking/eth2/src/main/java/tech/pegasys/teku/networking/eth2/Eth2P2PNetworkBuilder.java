@@ -89,6 +89,8 @@ import tech.pegasys.teku.spec.datastructures.epbs.versions.gloas.SignedExecution
 import tech.pegasys.teku.spec.datastructures.epbs.versions.gloas.SignedExecutionPayloadEnvelope;
 import tech.pegasys.teku.spec.datastructures.epbs.versions.gloas.SignedProposerPreferences;
 import tech.pegasys.teku.spec.datastructures.execution.ExecutionProof;
+import tech.pegasys.teku.spec.datastructures.lightclient.LightClientFinalityUpdate;
+import tech.pegasys.teku.spec.datastructures.lightclient.LightClientOptimisticUpdate;
 import tech.pegasys.teku.spec.datastructures.operations.AttesterSlashing;
 import tech.pegasys.teku.spec.datastructures.operations.ProposerSlashing;
 import tech.pegasys.teku.spec.datastructures.operations.SignedBlsToExecutionChange;
@@ -139,6 +141,10 @@ public class Eth2P2PNetworkBuilder {
   protected OperationProcessor<PayloadAttestationMessage> payloadAttestationMessageProcessor;
   protected OperationProcessor<SignedExecutionPayloadBid> executionPayloadBidProcessor;
   protected OperationProcessor<SignedProposerPreferences> proposerPreferencesProcessor;
+  protected Optional<OperationProcessor<LightClientFinalityUpdate>>
+      lightClientFinalityUpdateProcessor = Optional.empty();
+  protected Optional<OperationProcessor<LightClientOptimisticUpdate>>
+      lightClientOptimisticUpdateProcessor = Optional.empty();
   protected ProcessedAttestationSubscriptionProvider processedAttestationSubscriptionProvider;
   protected MetricsSystem metricsSystem;
   protected final List<RpcMethod<?, ?, ?>> rpcMethods = new ArrayList<>();
@@ -315,6 +321,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               debugDataDumper);
       case BELLATRIX ->
           new GossipForkSubscriptionsBellatrix(
@@ -333,6 +341,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               debugDataDumper);
       case CAPELLA ->
           new GossipForkSubscriptionsCapella(
@@ -351,6 +361,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               gossipedSignedBlsToExecutionChangeProcessor,
               debugDataDumper);
       case DENEB ->
@@ -371,6 +383,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               gossipedSignedBlsToExecutionChangeProcessor,
               debugDataDumper);
       case ELECTRA ->
@@ -391,6 +405,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               gossipedSignedBlsToExecutionChangeProcessor,
               debugDataDumper,
               executionProofOperationProcessor,
@@ -413,6 +429,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               gossipedSignedBlsToExecutionChangeProcessor,
               dataColumnSidecarOperationProcessor,
               debugDataDumper,
@@ -438,6 +456,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               gossipedSignedBlsToExecutionChangeProcessor,
               dataColumnSidecarOperationProcessor,
               executionPayloadProcessor,
@@ -476,6 +496,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               gossipedSignedBlsToExecutionChangeProcessor,
               dataColumnSidecarOperationProcessor,
               executionProofOperationProcessor,
@@ -502,6 +524,8 @@ public class Eth2P2PNetworkBuilder {
               gossipedVoluntaryExitConsumer,
               gossipedSignedContributionAndProofProcessor,
               gossipedSyncCommitteeMessageProcessor,
+              lightClientFinalityUpdateProcessor,
+              lightClientOptimisticUpdateProcessor,
               gossipedSignedBlsToExecutionChangeProcessor,
               dataColumnSidecarOperationProcessor,
               executionPayloadProcessor,
@@ -825,6 +849,20 @@ public class Eth2P2PNetworkBuilder {
       final OperationProcessor<SignedProposerPreferences> gossipedProposerPreferencesProcessor) {
     checkNotNull(gossipedProposerPreferencesProcessor);
     this.proposerPreferencesProcessor = gossipedProposerPreferencesProcessor;
+    return this;
+  }
+
+  public Eth2P2PNetworkBuilder gossipedLightClientFinalityUpdateProcessor(
+      final OperationProcessor<LightClientFinalityUpdate> lightClientFinalityUpdateProcessor) {
+    checkNotNull(lightClientFinalityUpdateProcessor);
+    this.lightClientFinalityUpdateProcessor = Optional.of(lightClientFinalityUpdateProcessor);
+    return this;
+  }
+
+  public Eth2P2PNetworkBuilder gossipedLightClientOptimisticUpdateProcessor(
+      final OperationProcessor<LightClientOptimisticUpdate> lightClientOptimisticUpdateProcessor) {
+    checkNotNull(lightClientOptimisticUpdateProcessor);
+    this.lightClientOptimisticUpdateProcessor = Optional.of(lightClientOptimisticUpdateProcessor);
     return this;
   }
 
