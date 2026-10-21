@@ -452,7 +452,9 @@
     </spec>
 
 - name: MAX_REQUEST_LIGHT_CLIENT_UPDATES#altair
-  sources: []
+  sources:
+    - file: ethereum/spec/src/main/java/tech/pegasys/teku/spec/constants/NetworkConstants.java
+      search: MAX_REQUEST_LIGHT_CLIENT_UPDATES =
   spec: |
     <spec constant_var="MAX_REQUEST_LIGHT_CLIENT_UPDATES" fork="altair" hash="aa7e3917">
     MAX_REQUEST_LIGHT_CLIENT_UPDATES = 2**7

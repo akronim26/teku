@@ -21,14 +21,7 @@ specrefs:
       - ENDIANNESS
       - EMPTY_BLOCK_HASH#bellatrix # tuweni library is used instead
 
-      # No light client support
-      - MAX_REQUEST_LIGHT_CLIENT_UPDATES
-
-      # Constants in the KZG library
-      - BYTES_PER_COMMITMENT
-      - BYTES_PER_PROOF
-      - FIAT_SHAMIR_PROTOCOL_DOMAIN
-      - G1_POINT_AT_INFINITY
+      # Constant in the KZG library
       - G2_POINT_AT_INFINITY
       - KZG_ENDIANNESS
       - KZG_SETUP_G2_LENGTH
